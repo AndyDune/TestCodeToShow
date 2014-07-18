@@ -1,0 +1,502 @@
+<!DOCTYPE html><html>
+<head>
+<meta charset="utf-8">
+<title>Тест</title>
+
+<script>
+
+    // Текущий адаптор
+    var mode = 'yandex';
+    // Доступные адапторы
+    var modes = {test: 'testSource', yandex: 'yandexSource'};
+
+    imagesBlankSource = function(){
+        this.maxPosition = 0;
+        this.collection = [];
+        this.get =  function(number){
+            if (this.maxPosition < 0) {
+                return false
+            }
+            /* Здесь пусть идет по кругу
+             */
+            if (number > this.maxPosition) {
+                return {}
+            }
+            return this.collection[number];
+        }
+
+        this.has =  function(number){
+            if (this.maxPosition < 0) {
+                return false
+            }
+            if (number > this.maxPosition) {
+                return false
+            }
+            return true
+        }
+
+        this.init =  function(number){
+            alert('Метод для перезагрузки')
+        }
+
+        this.reset = function(){
+
+        }
+    };
+
+    /**
+     * Для тестирования карусели
+     */
+    testSource = function(){
+        this.link = '/test-data.txt';
+        this.init =  function(){
+            this.collection = [
+                {src: 'img/boneyard_16x10.png', width: 300, height: 187},
+                {src: 'img/IMAG0008.jpg', width: 300, height: 179},
+                {src: 'img/IMAG0012.jpg', width: 300, height: 179},
+                {src: 'img/outpost_16x10.png', width: 300, height: 187},
+                {src: 'img/overlook_16x10.png', width: 300, height: 187},
+                {src: 'img/relic_16x10.png', width: 300, height: 187},
+                {src: 'img/IMAG0012.jpg', width: 300, height: 179},
+                {src: 'img/outpost_16x10.png', width: 300, height: 187},
+                {src: 'img/overlook_16x10.png', width: 300, height: 187},
+
+                {src: 'img/worker_16x10.png', width: 300, height: 187}
+            ];
+            this.maxPosition = this.collection.length - 1;
+        }
+
+        this.processData =  function (data){
+        }
+
+    }
+
+
+    yandexSource = function(){
+        this.link = 'http://api-fotki.yandex.ru/api/top/?format=json&callback=imageCollections.processData';
+
+        this.processData =  function (data){
+            var run;
+            var c;
+            if (data.entries != undefined && data.entries.length > 0) {
+                for(run = 0; run < data.entries.length; run++) {
+                    if (data.entries[run].img.M != undefined) {
+                        c = data.entries[run].img.M;
+
+                        this.collection[this.collection.length] = {src : c.href, width : c.width, height : c.height};
+                    }
+                }
+                this.maxPosition = this.collection.length - 1;
+            }
+        }
+
+        this.init =  function(){
+            var elem = document.createElement('script');
+            elem.src = this.link;
+            document.getElementsByTagName('head')[0].appendChild(elem);
+        }
+    }
+
+
+    function useContext(context, method, object)
+    {
+        return function() {
+            return context[method].call(context, object);
+        }
+    }
+
+    function useContextPlus(context, method, number)
+    {
+        return function() {
+            return context[method].call(context, context.inputNumber.value);
+        }
+    }
+
+
+
+    caruselCollectionBase = function(containerName, imageCollection){
+        this.imageCollection = imageCollection; // объект с набором картинок
+        this.itemsObjects = []; // сами карусели
+        this.itemsPosition = 0; // позиция
+        this.comtainerName = containerName; // имя контейнера каруселей
+        this.comtainerElement = document.getElementById(containerName); //
+
+
+        this.elementWidth = 200;
+        this.elementWidthFact = 200;
+
+
+        this.width = this.comtainerElement.clientWidth; // Область скрола зависитт ок ширины экрана
+
+        var more = this.width % this.elementWidth; // Можем увеличить ширину элементов
+        this.count = (this.width - more) / this.elementWidth;  // Колл. видимых блоков
+
+        this.elementWidthFact =  this.elementWidth
+                + (more - more % this.count) / this.count;
+
+
+
+    }
+
+    caruselCollectionBase.prototype.addCarusel = function(shift) {
+        // Передаем новой карусели себя и номер в ряду
+
+        this.itemsObjects[this.itemsPosition] = new carusel(this, this.itemsPosition);
+
+        if (shift.inputNumber != undefined) {
+            this.itemsObjects[this.itemsPosition].setPosition(shift.inputNumber.value);
+        }
+
+
+        this.itemsPosition++
+
+    }
+
+
+    carusel = function(collection, position){
+
+        /**
+         * Так можно найти текущую каресель в наборе элементов
+         * some = collection.comtainerElement.getElementsByTagName('div')[this.myNumber]
+         */
+        this.myNumber = position;
+
+        this.caruselCollection = collection;
+
+
+        this.block = document.createElement('div'); // этот контейнерт текущей карусели
+        collection.comtainerElement.appendChild(this.block);
+
+
+        var control = document.createElement('button');
+        control.setAttribute('class', 'click-move-left');
+        this.block.appendChild(control);
+        control.addEventListener('click', useContext(this, 'prev'));
+        control.innerHTML = 'Предыдуший';
+
+
+        control = document.createElement('button');
+        control.setAttribute('class', 'click-move-right');
+        this.block.appendChild(control);
+        control.addEventListener('click', useContext(this, 'next'));
+        control.innerHTML = 'Следуюший';
+
+        var controlBlock = document.createElement('p');
+        this.block.appendChild(controlBlock);
+
+        this.inputNumber = document.createElement('input');
+        this.inputNumber.setAttribute('type', 'input');
+        this.inputNumber.setAttribute('value', this.myNumber + 1);
+        controlBlock.appendChild(this.inputNumber);
+
+        control = document.createElement('button');
+        control.setAttribute('class', 'jump-new');
+        controlBlock.appendChild(control);
+        control.addEventListener('click', useContextPlus(this, 'setPosition'));
+        control.innerHTML = 'Прыгнуть';
+
+
+        control = document.createElement('button');
+        control.setAttribute('class', 'jump-new');
+        controlBlock.appendChild(control);
+        control.addEventListener('click', useContext(this.caruselCollection, 'addCarusel', this));
+        control.innerHTML = 'Создать';
+
+
+
+        this.blockMove = document.createElement('ul'); // этот будет двигаться
+        this.block.appendChild(this.blockMove);
+        this.blockMove.style.left = '0px';
+
+        this.elementShift = 0;
+        this.elementWidthFact = collection.elementWidthFact;
+        this.elements = [];
+
+        // Размещаем самые первые
+        for (var run = 0; run < this.caruselCollection.count; run++) {
+            this.plusOne()
+        }
+        this.nextShift = 0;
+        this.prevShift = 0;
+    }
+
+
+    carusel.prototype.plusOne = function(){
+        var image, oneMoreImage;
+        var run = this.elements.length;
+        // Размещаем самые первые
+        this.elements[run] = document.createElement('li');
+        this.elements[run].style.left = this.elementShift + 'px';
+        this.elements[run].style.width = this.elementWidthFact + 'px';
+        this.elementShift = this.elementShift + this.elementWidthFact;
+        this.blockMove.appendChild(this.elements[run]);
+
+        image = this.caruselCollection.imageCollection.get(run);
+        if (image.src != undefined) {
+            oneMoreImage = document.createElement('img');
+            oneMoreImage.setAttribute('src', image.src);
+            if (image.width > image.height) {
+                oneMoreImage.setAttribute('width', 200);
+                val = (200 - 200 / image.width * image.height) / 2;
+                oneMoreImage.style.top = val + 'px';
+            } else {
+                oneMoreImage.setAttribute('height', 200);
+            }
+            this.elements[run].appendChild(oneMoreImage);
+        }
+    }
+
+
+
+    carusel.prototype.next = function(shift) {
+
+        var elem = this.blockMove;
+
+        var pluses = 0;
+
+        var left = parseInt(elem.style.left);
+        var needLeft = left - this.caruselCollection.elementWidthFact;
+
+        var animate = true;
+        if (shift == 1) {  // на 1 анимируем
+            shift = 0;
+        }
+        if (shift > 0) {
+            animate = false;
+        }
+        do {
+            if (this.nextShift == 0 ) { // Слайдеру нужен новый элемент
+                if (this.caruselCollection.imageCollection.has(this.elements.length)) { // Есть
+                    this.plusOne();
+                    pluses++;
+                    this.prevShift++;
+                } else if (animate) {
+                    return false; // Стоим на месте
+                }
+            } else {
+                pluses++;
+                this.nextShift--
+                this.prevShift++;
+            }
+            shift--;
+        } while (shift > 0)
+
+
+        if (!animate) {
+            needLeft = left - pluses * this.caruselCollection.elementWidthFact;
+            elem.style.left = needLeft + 'px'
+            return false;
+        }
+        //alert(this.prevShift);
+        function frameLeft() {
+            left = left - 2;
+            elem.style.left = left + 'px'
+            if (left == needLeft) {
+                clearInterval(timer); // завершить анимацию
+            }
+        }
+        var timer = setInterval(frameLeft, 1)
+    }
+
+    carusel.prototype.prev = function(shift) {
+
+        if (typeof shift != 'number' || shift < 1) {  // на 1 анимируем
+            shift = 1;
+        }
+
+        var elem = this.blockMove;
+
+        var left = parseInt(elem.style.left);
+
+        if (this.prevShift == 0) {
+            return false
+        }
+        if (shift > this.prevShift) {
+            shift = this.prevShift
+        }
+
+        var needLeft = left + shift * this.caruselCollection.elementWidthFact;
+
+        this.nextShift = this.nextShift + shift; // увеличиваем буфер справа
+        this.prevShift = this.prevShift - shift; // уменьшаем буфер слева
+
+        if (shift > 1) { // Прыгаем пока без анимации
+            elem.style.left = needLeft + 'px'
+            return true;
+        }
+
+        function frameRight() {
+            left = left + 2;
+            elem.style.left = left + 'px'
+            if (left == needLeft) {
+                clearInterval(timer); // завершить анимацию
+            }
+        }
+        var timer = setInterval(frameRight, 1)
+
+    }
+
+    carusel.prototype.setPosition = function(number) {
+        number = parseInt(number);
+        if (typeof number == 'undefined' || number < 0) {
+            return false;
+        }
+        number--;
+        if (number > this.prevShift) {
+            this.next(number - this.prevShift)
+        } else if (number < this.prevShift) {
+            this.prev(this.prevShift - number)
+        }
+    }
+
+
+
+    var imageCollections = new imagesBlankSource();
+
+    if (modes[mode] != undefined) {
+        this[modes[mode]].call(imageCollections);
+    } else {
+        alert('Нет такого режима: ' + mode);
+    }
+
+    imageCollections.init();
+
+
+    window.onload = function() {
+
+        var caruselCollection = new caruselCollectionBase('scroll-block', imageCollections);
+        caruselCollection.addCarusel(0);
+/*
+        caruselCollection.itemsObjects[0].next();
+
+        caruselCollection.addCarusel(0);
+        caruselCollection.itemsObjects[1].next(3);
+        caruselCollection.itemsObjects[1].prev(1);
+*/
+    }
+    //alert(imageCollections.maxPosition);
+    //alert(imageCollections.getNext().src);
+
+</script>
+
+<style type="text/css">
+    #main {
+        padding:0;
+        margin: 0 auto;
+        width: 840px;
+    }
+
+    #scroll-block {
+        margin-top: 100px;
+        width: 100%;
+        position: relative;
+    }
+    #scroll-block  div{
+        margin-top: 20px;
+        padding:  40px 0 0 0;
+
+        height: 200px;
+        width: 100%;
+        overflow: hidden;
+        position: relative;
+    }
+
+
+    #scroll-block div ul {
+        margin: 0;
+        padding: 0;
+        position: relative;
+        height: 100%;
+        left: 0px;
+    }
+
+    #scroll-block div ul li {
+        text-align: center;
+        margin: 0;
+        padding: 0;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 200px;
+        width: 200px;
+        list-style: none;
+
+        transition: left.3s ease;
+
+    }
+
+    #scroll-block div ul li img {
+        display: block;
+        padding: 0;
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .click-move-right, .click-move-left  {
+        position: absolute;
+        top: 0;
+        left: 10px;
+        z-index: 100;
+        float: left;
+        cursor: pointer;
+        outline: none;
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 2px;
+        background: rgb(245,245,245) linear-gradient(#f4f4f4, #f1f1f1);
+        transition: all .218s ease 0s;
+        padding: 5px;
+    }
+
+    .click-move-right:hover, .click-move-left:hover  {
+        color: rgb(24,24,24);
+        border: 1px solid rgb(198,198,198);
+        background: #f7f7f7 linear-gradient(#f7f7f7, #f1f1f1);
+        box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .click-move-right {
+        left: inherit;
+        right: 10px;
+    }
+    .jump-new {
+        float: left;
+        cursor: pointer;
+        outline: none;
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 2px;
+        background: rgb(245,245,245) linear-gradient(#f4f4f4, #f1f1f1);
+        transition: all .218s ease 0s;
+        padding: 5px;
+
+    }
+
+    #scroll-block  input{
+        border: 1px solid rgba(0,0,0,.1);
+        border-radius: 2px;
+        transition: all .218s ease 0s;
+        padding: 5px;
+        width: 20px;
+        float: left;
+    }
+
+    #scroll-block  div p{
+        padding:  0;
+        margin: 0;
+        position: absolute;
+        left: 300px;
+        top: 0px;
+    }
+
+</style>
+
+</head>
+<body>
+
+<div id="main">
+    <div id="scroll-block">
+    </div>
+</div>
+
+
+
+</body>
+</html>
